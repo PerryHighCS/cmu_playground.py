@@ -1,0 +1,329 @@
+# cmu_playground API
+
+`cmu_playground` lets you program the Circuit Playground Express the way you
+program in CMU CS Academy: you write event functions, and the framework calls
+them when things happen.
+
+Your program has three parts:
+
+- **Model**: the `app` object, which holds your program's state.
+- **Controllers**: event functions such as `onTouch` and `onStep`, which
+  change the model.
+- **View**: `updateAll(app)`, which reads the model and sets the LEDs and
+  sound.
+
+## A complete program
+
+```python
+from cmu_playground import *
+
+def onAppStart(app):
+    app.score = 0
+    app.color = 'blue'
+
+def onTouch(app, pad):
+    app.score += 1
+    app.color = 'green'
+
+def onTouchRelease(app, pad):
+    app.color = 'blue'
+
+def updateAll(app):
+    setAllLeds(app.color)
+
+def main():
+    runApp()
+
+main()
+```
+
+Save it as `code.py` on the `CIRCUITPY` drive. The board restarts and runs it.
+
+## Starting the app
+
+### `runApp()`
+
+Starts your program. Call it once, at the end of `code.py`. You don't pass
+it anything: it finds your event functions by name.
+
+`runApp()` keeps running until `app.running` is set to `False` or an error
+stops the program.
+
+## Event functions
+
+Define only the ones you need. Every one receives `app` first.
+
+| Function | When it runs |
+|---|---|
+| `onAppStart(app)` | Once, when the program starts |
+| `onTouch(app, pad)` | A touch pad is touched |
+| `onTouchRelease(app, pad)` | A touch pad is let go |
+| `onButtonPress(app, button)` | Button A or B is pressed |
+| `onButtonRelease(app, button)` | Button A or B is released |
+| `onStep(app)` | `app.stepsPerSecond` times per second |
+| `updateAll(app)` | After the events above, to update the LEDs and sound |
+
+### `onAppStart(app)`
+
+Set up your model here. Any attribute you want to read later should get a
+starting value in `onAppStart`.
+
+```python
+def onAppStart(app):
+    app.score = 0
+    app.stepsPerSecond = 5
+```
+
+### `onTouch(app, pad)` and `onTouchRelease(app, pad)`
+
+`pad` is a string naming the pad: `'A1'`, `'A2'`, `'A3'`, `'A4'`, `'A5'`,
+`'A6'`, or `'A7'`. The pad labeled TX is `'A7'`.
+
+Holding a pad does not repeat `onTouch`. You get one `onTouch` when the touch
+starts and one `onTouchRelease` when it ends.
+
+```python
+def onTouch(app, pad):
+    if pad == 'A1':
+        app.score += 1
+```
+
+The pads calibrate themselves when the program starts, so don't touch them
+while the board is restarting.
+
+### `onButtonPress(app, button)` and `onButtonRelease(app, button)`
+
+`button` is `'A'` or `'B'`. Like touch, holding a button does not repeat the
+event.
+
+```python
+def onButtonPress(app, button):
+    if button == 'B':
+        app.score = 0
+```
+
+A pad or button that is already held when the program starts does not cause
+an event.
+
+### `onStep(app)`
+
+Runs over and over, `app.stepsPerSecond` times per second. Use it for
+anything that changes over time: animations, timers, blinking.
+
+```python
+def onStep(app):
+    app.counter += 1
+```
+
+If your code is too slow to keep up, missed steps are skipped, not saved up
+for later.
+
+### `updateAll(app)`
+
+Draws the model onto the board. It runs once after `onAppStart`, and again
+after any event function runs. If nothing happens, it doesn't run.
+
+```python
+def updateAll(app):
+    setAllLeds(app.color)
+```
+
+Inside `updateAll`:
+
+- You can read `app`, but you can't change it.
+- All the LEDs start off. Turn on every LED you want lit, every time.
+
+## The `app` object
+
+You can add any attributes you like to `app`. These three are built in:
+
+| Attribute | Default | Meaning |
+|---|---|---|
+| `app.stepsPerSecond` | `10` | How often `onStep` runs |
+| `app.elapsedTime` | `0` | Seconds since the program started (read only) |
+| `app.running` | `True` | Set to `False` to stop the program |
+
+### `app.stepsPerSecond`
+
+Any number zero or larger. `0` turns `onStep` off, but touch and button
+events still work. When you change it, the next step comes one new interval
+later.
+
+### `app.elapsedTime`
+
+Seconds since the program started, as a decimal number like `3.25`. It keeps
+counting on its own; you can read it in any function but can't set it.
+
+```python
+def onTouch(app, pad):
+    app.touchTime = app.elapsedTime
+```
+
+### `app.running`
+
+Set it to `False` to stop the program. The LEDs turn off and the speaker goes
+quiet.
+
+```python
+def onButtonPress(app, button):
+    if button == 'A':
+        app.running = False
+```
+
+## LEDs
+
+The board has 10 LEDs, numbered `0` through `9`. You can only use these
+functions inside `updateAll(app)`.
+
+### `setLed(index, color)`
+
+Sets one LED. `index` is a whole number from `0` to `9`.
+
+```python
+setLed(0, 'red')
+```
+
+### `setAllLeds(color)`
+
+Sets all 10 LEDs to one color.
+
+### `clearLeds()`
+
+Turns all the LEDs off. Each `updateAll` already starts with the LEDs off,
+so you only need this to turn them off partway through.
+
+### Colors
+
+A color is either a name or an RGB tuple.
+
+**Names** (capital letters are fine):
+`'red'`, `'green'`, `'blue'`, `'yellow'`, `'orange'`, `'purple'`, `'pink'`,
+`'white'`, `'black'`, `'gold'`
+
+`'black'` means off.
+
+**RGB tuples** are three whole numbers from `0` to `255`, for red, green and
+blue, in parentheses:
+
+```python
+setLed(3, (255, 100, 0))   # orange-ish
+```
+
+The LEDs run at low brightness, so `255` won't be blinding.
+
+## Sound
+
+The board plays one sound at a time. You can only use these functions inside
+`updateAll(app)`.
+
+### `playTone(frequency)`
+
+Plays a steady tone. `frequency` is in hertz, from `20` to `4000`. For
+example, `440` is the note A.
+
+The tone keeps playing until a later `updateAll` asks for something else. If
+`updateAll` asks for the same tone again, it keeps going smoothly instead of
+restarting.
+
+Every time `updateAll` runs, it decides what you hear. If an `updateAll`
+doesn't call `playTone`, the tone stops. So store the tone in the model and
+call `playTone` every time:
+
+```python
+def onAppStart(app):
+    app.frequency = None
+
+def onTouch(app, pad):
+    app.frequency = 440
+
+def onTouchRelease(app, pad):
+    app.frequency = None
+
+def updateAll(app):
+    if app.frequency is None:
+        stopTone()
+    else:
+        playTone(app.frequency)
+```
+
+### `stopTone()`
+
+Asks for silence. Leaving out `playTone` does the same thing, but `stopTone`
+makes your intent clear.
+
+### `playSound(filename)`
+
+Plays a `.wav` file saved on the `CIRCUITPY` drive, such as
+`playSound('beep.wav')`. Use uncompressed WAV files. 16-bit mono at 22,050 Hz
+or lower works well.
+
+A sound plays **once** when `updateAll` starts asking for it. It does not
+restart while later `updateAll` calls keep asking for it. To play it again,
+have one `updateAll` stop asking, then ask again. A simple way is to request
+it while a pad is touched:
+
+```python
+def onAppStart(app):
+    app.ding = False
+
+def onTouch(app, pad):
+    app.ding = True
+
+def onTouchRelease(app, pad):
+    app.ding = False
+
+def updateAll(app):
+    if app.ding:
+        playSound('ding.wav')
+```
+
+A sound file interrupts a tone. When the sound finishes, the tone comes back
+if `updateAll` is still asking for it.
+
+## Rules and errors
+
+The framework stops your program with an error message when a rule is
+broken. The message appears in the serial console.
+
+| What you did | Error |
+|---|---|
+| Called an LED or sound function outside `updateAll` | `MVCError` |
+| Changed `app` inside `updateAll` | `MVCError` |
+| Read an `app` attribute you never set | `AttributeError` |
+| Set `app.elapsedTime` | `AttributeError` |
+| Set `app.stepsPerSecond` to something that isn't a number | `TypeError` |
+| Set `app.stepsPerSecond` below zero | `ValueError` |
+| Used an LED index outside 0 to 9 | `IndexError` |
+| Used an unknown color name or a bad RGB value | `ValueError` |
+| Used a tone frequency outside 20 to 4000 | `ValueError` |
+| Passed `playSound` something that isn't a string | `TypeError` |
+| Asked `playSound` for a file that doesn't exist | `ValueError` |
+| Named a variable `onTouch` (or another event name) that isn't a function | `TypeError` |
+
+Errors in your own code, such as a misspelled variable, show up as normal
+Python errors with the line number in your `code.py`.
+
+When the program stops, for any reason, the LEDs turn off and the speaker
+goes quiet.
+
+### Lists and dictionaries in the model
+
+Changing a list or dictionary inside `updateAll`, as in
+`app.scores.append(5)`, is against the rules even though the framework can't
+catch it. Do all changes in your event functions.
+
+## Board setup
+
+The `CIRCUITPY` drive needs:
+
+```text
+CIRCUITPY/
+    code.py              your program
+    cmu_playground.mpy   the framework
+```
+
+Don't put `cmu_playground.py` (the source file) on the drive. The board
+would try to load it instead of the `.mpy`, and run out of memory.
+
+The board has very little memory. Long programs can stop with a
+`MemoryError`. If that happens, make your program shorter or simpler.
