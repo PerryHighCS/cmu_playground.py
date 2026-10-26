@@ -91,6 +91,51 @@ def onTouch(app, pad):
 The pads calibrate themselves when the program starts, so don't touch them
 while the board is restarting.
 
+### Touch calibration
+
+These functions use the same pad names, `'A1'` through `'A7'` (TX).
+Readings and thresholds come directly from CircuitPython's
+[`touchio.TouchIn`](https://docs.circuitpython.org/en/latest/shared-bindings/touchio/index.html).
+A pad counts as touched when its raw reading is **greater than** its
+threshold. A lower threshold makes it more sensitive; a higher threshold
+makes it less sensitive.
+
+| Function | What it does |
+|---|---|
+| `getTouchRawValue(pad)` | Reads the current raw measurement |
+| `getTouchThreshold(pad)` | Reads the current threshold |
+| `setTouchThreshold(pad, threshold)` | Sets an absolute threshold |
+| `calibrateTouch(pad=None, offset=100)` | Sets the threshold to a fresh raw reading plus `offset`; omit `pad` to calibrate all seven pads |
+
+Call these functions while the app is running. Readings are allowed in any
+callback. Set thresholds and calibrate only in event functions, such as
+`onAppStart` or `onButtonPress`, because they change how inputs behave.
+Thresholds and offsets must be integers from `0` to `65535`; the calibrated
+threshold must also fit that range. Invalid calibration values leave all
+thresholds unchanged.
+
+Keep your fingers off the pads and any attached conductive objects during
+calibration. Attach wires or foil before calibrating. Each pad is sampled
+once, using the same reading-plus-offset approach as startup calibration.
+The default offset is `100`; a larger offset reduces sensitivity.
+
+```python
+def onAppStart(app):
+    calibrateTouch(offset=200)  # all pads, after attaching wires or foil
+
+def onButtonPress(app, button):
+    if button == 'B':
+        calibrateTouch()       # recalibrate with all pads untouched
+    elif button == 'A':
+        print(getTouchRawValue('A1'), getTouchThreshold('A1'))
+```
+
+For manual tuning, use `setTouchThreshold('A1', 1500)` with a value chosen
+from your own untouched and touched readings. Changes take effect on the
+next input poll and can cause a touch or release event. Calibration does
+not reset the event history. Settings last until changed or the program
+restarts.
+
 ### `onButtonPress(app, button)` and `onButtonRelease(app, button)`
 
 `button` is `'A'` or `'B'`. Like touch, holding a button does not repeat the
@@ -289,6 +334,10 @@ broken. The message appears in the serial console.
 |---|---|
 | Called an LED or sound function outside `updateAll` | `MVCError` |
 | Changed `app` inside `updateAll` | `MVCError` |
+| Called a touch helper before `runApp`, or changed calibration outside an event function | `MVCError` |
+| Used a touch pad name other than `'A1'` through `'A7'` | `ValueError` |
+| Used a non-integer touch threshold or offset | `TypeError` |
+| Used a touch threshold, offset, or calibrated result outside 0 to 65535 | `ValueError` |
 | Read an `app` attribute you never set | `AttributeError` |
 | Set `app.elapsedTime` | `AttributeError` |
 | Set `app.stepsPerSecond` to something that isn't a number | `TypeError` |

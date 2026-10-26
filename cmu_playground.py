@@ -22,7 +22,9 @@ import audiocore
 import supervisor
 
 __all__ = ('runApp', 'setLed', 'setAllLeds', 'clearLeds',
-           'playTone', 'stopTone', 'playSound', 'MVCError')
+           'playTone', 'stopTone', 'playSound', 'getTouchRawValue',
+           'getTouchThreshold', 'setTouchThreshold', 'calibrateTouch',
+           'MVCError')
 
 CALLBACK_NAMES = ('onAppStart', 'onTouch', 'onTouchRelease',
                   'onButtonPress', 'onButtonRelease', 'onStep', 'updateAll')
@@ -384,6 +386,58 @@ def runApp():
 def _checkView(name):
     if _runtime is None or _runtime.phase != VIEW:
         raise MVCError(name + '() can only be called from updateAll(app)')
+
+
+def _checkTouch(name, changing=False):
+    if _runtime is None:
+        raise MVCError(name + '() requires a running app')
+    if changing and _runtime.phase != CONTROLLER:
+        raise MVCError(name + '() can only be called from an event function')
+
+
+def _touchPad(pad):
+    names = _runtime.hw.padNames
+    if not isinstance(pad, str) or pad not in names:
+        raise ValueError("touch pad must be 'A1' through 'A7', got " + repr(pad))
+    return _runtime.hw.pads[names.index(pad)]
+
+
+def _touchNumber(value, name):
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(name + ' must be an integer')
+    if not 0 <= value <= 65535:
+        raise ValueError(name + ' must be 0 to 65535')
+
+
+def getTouchRawValue(pad):
+    _checkTouch('getTouchRawValue')
+    return _touchPad(pad).raw_value
+
+
+def getTouchThreshold(pad):
+    _checkTouch('getTouchThreshold')
+    return _touchPad(pad).threshold
+
+
+def setTouchThreshold(pad, threshold):
+    _checkTouch('setTouchThreshold', True)
+    device = _touchPad(pad)
+    _touchNumber(threshold, 'touch threshold')
+    device.threshold = threshold
+
+
+def calibrateTouch(pad=None, offset=100):
+    _checkTouch('calibrateTouch', True)
+    _touchNumber(offset, 'touch offset')
+    pads = _runtime.hw.pads if pad is None else (_touchPad(pad),)
+    # Validate all readings before changing any thresholds. Keep the pads
+    # untouched while sampling; this matches TouchIn's startup calibration.
+    thresholds = [device.raw_value + offset for device in pads]
+    for threshold in thresholds:
+        _touchNumber(threshold, 'calibrated touch threshold')
+    for i in range(len(pads)):
+        pads[i].threshold = thresholds[i]
+    # Leave event state intact: the next input poll reports any transition.
 
 
 def _toRGB(color):
