@@ -417,7 +417,9 @@ print('free:', gc.mem_free(), 'import used:', before - gc.mem_free())
 
 For a local Linux/WSL build, follow
 [CircuitPython's build setup](https://docs.circuitpython.org/en/latest/BUILDING.html),
-activate the environment with its `requirements-dev.txt` installed, and run:
+activate the environment with its `requirements-dev.txt` installed, put ARM
+GCC 14 or newer on `PATH` (the workflow uses 15.2.Rel1, matching upstream CI),
+and run:
 
 ```bash
 git clone --branch 10.3.1 https://github.com/adafruit/circuitpython.git
@@ -425,8 +427,10 @@ bash tools/build_frozen.sh circuitpython
 ```
 
 Use a dedicated CircuitPython checkout: the script adds a frozen-module
-directory and updates the Express board configuration, preserving its
-existing frozen libraries. The output goes in `firmware/`. The compiler
+directory and a supplemental build configuration, preserving its
+existing frozen libraries. Dependencies are fetched for the Express board
+rather than the entire SAMD port. Upstream's board fetch still includes
+some shared port dependencies. The output goes in `firmware/`. The compiler
 must successfully link the firmware to confirm that it fits the board's
 internal flash. This build setup has not yet been compiled or tested on
 hardware.

@@ -16,20 +16,41 @@ fi
 for tool in make gcc arm-none-eabi-gcc python3; do
     command -v "$tool" >/dev/null || { echo "Missing build tool: $tool" >&2; exit 1; }
 done
+arm_gcc_major="$(arm-none-eabi-gcc -dumpversion | cut -d. -f1)"
+if (( arm_gcc_major < 14 )); then
+    echo "CircuitPython 10.3.1 requires ARM GCC >= 14; found $arm_gcc_major." >&2
+    exit 1
+fi
+arm-none-eabi-gcc --version
 
 board_config="$cp_dir/ports/atmel-samd/boards/circuitplayground_express/mpconfigboard.mk"
 test -f "$board_config"
+# Remove the board edit left by the earlier version of this script.
+python3 - "$board_config" <<'PY'
+import pathlib
+import sys
+path = pathlib.Path(sys.argv[1])
+text = path.read_text()
+legacy_line = 'FROZEN_MPY_DIRS += $(TOP)/cmu_frozen'
+if legacy_line in text.splitlines():
+    path.write_text(''.join(line for line in text.splitlines(keepends=True)
+                            if line.strip() != legacy_line))
+PY
+
+# Select dependencies by board, before adding our non-submodule source directory.
+# The port-wide target clones every frozen library and unrelated port libraries.
+make -C "$cp_dir/ports/atmel-samd" BOARD=circuitplayground_express fetch-board-submodules
+
 mkdir -p "$cp_dir/cmu_frozen"
 # Freeze the source using the firmware's own mpy-cross, not the standalone .mpy.
 cp "$project_dir/cmu_playground.py" "$cp_dir/cmu_frozen/cmu_playground.py"
-freeze_line='FROZEN_MPY_DIRS += $(TOP)/cmu_frozen'
-if ! grep -Fxq "$freeze_line" "$board_config"; then
-    printf '\n%s\n' "$freeze_line" >> "$board_config"
-fi
+mkdir -p "$cp_dir/cmu_build_config"
+printf '%s\n' 'FROZEN_MPY_DIRS += $(TOP)/cmu_frozen' \
+    > "$cp_dir/cmu_build_config/user_post_mpconfigport.mk"
 
-make -C "$cp_dir/ports/atmel-samd" BOARD=circuitplayground_express fetch-port-submodules
 make -C "$cp_dir/mpy-cross" -j2
-make -C "$cp_dir/ports/atmel-samd" BOARD=circuitplayground_express -j2
+make -C "$cp_dir/ports/atmel-samd" -I "$cp_dir/cmu_build_config" \
+    BOARD=circuitplayground_express -j2
 
 mkdir -p "$project_dir/firmware"
 cp "$cp_dir/ports/atmel-samd/build-circuitplayground_express/firmware.uf2" \
