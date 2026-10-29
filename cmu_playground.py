@@ -67,15 +67,14 @@ class App:
 
     def __setattr__(self, name, value):
         if _runtime.phase == VIEW:
-            raise MVCError('updateAll(app) may not change the model '
-                           '(tried to set app.' + name + ')')
+            raise MVCError('updateAll cannot set app.' + name)
         if name == 'elapsedTime':
             raise AttributeError('app.elapsedTime is read only')
         if name == 'stepsPerSecond':
             if not isinstance(value, (int, float)) or isinstance(value, bool):
-                raise TypeError('app.stepsPerSecond must be a number')
+                raise TypeError('stepsPerSecond must be a number')
             if value < 0:
-                raise ValueError('app.stepsPerSecond cannot be negative')
+                raise ValueError('stepsPerSecond must be >= 0')
             _runtime.stepsChanged = True
         object.__setattr__(self, name, value)
 
@@ -83,23 +82,7 @@ class App:
         # Only called for attributes that were never set.
         if name == 'elapsedTime':
             return _runtime.elapsedSeconds()
-        raise AttributeError('app has no attribute ' + repr(name) +
-                             ' (set it in onAppStart first)')
-
-
-# ----------------------------------------------------------- Discovery
-
-def discoverCallbacks(namespace):
-    handlers = {}
-    for name in CALLBACK_NAMES:
-        try:
-            callback = getattr(namespace, name)
-        except AttributeError:
-            continue
-        if not callable(callback):
-            raise TypeError(name + ' must be a function')
-        handlers[name] = callback
-    return handlers
+        raise AttributeError('set app.' + name + ' in onAppStart first')
 
 
 # ------------------------------------------------------------ Hardware
@@ -170,7 +153,7 @@ class Hardware:
         try:
             f = open(filename, 'rb')
         except OSError:
-            raise ValueError('sound file not found: ' + repr(filename))
+            raise ValueError('file not found: ' + repr(filename))
         self.waveFile = f
         self.wave = audiocore.WaveFile(f)
         self.speakerEnable.value = True
@@ -211,14 +194,15 @@ class Runtime:
         self.elapsedMs = 0
 
         self.app = App()
-        handlers = discoverCallbacks(namespace)
-        self.onAppStart = handlers.get('onAppStart')
-        self.onTouch = handlers.get('onTouch')
-        self.onTouchRelease = handlers.get('onTouchRelease')
-        self.onButtonPress = handlers.get('onButtonPress')
-        self.onButtonRelease = handlers.get('onButtonRelease')
-        self.onStep = handlers.get('onStep')
-        self.updateAll = handlers.get('updateAll')
+        for name in CALLBACK_NAMES:
+            try:
+                callback = getattr(namespace, name)
+            except AttributeError:
+                callback = None
+            else:
+                if not callable(callback):
+                    raise TypeError(name + ' must be a function')
+            setattr(self, name, callback)
 
         self.hw = Hardware()
 
@@ -374,7 +358,7 @@ class Runtime:
 def runApp():
     global _runtime
     if _runtime is not None:
-        raise RuntimeError('runApp() is already running')
+        raise RuntimeError('runApp already running')
     import __main__
     _runtime = Runtime(__main__)
     try:
@@ -385,26 +369,26 @@ def runApp():
 
 def _checkView(name):
     if _runtime is None or _runtime.phase != VIEW:
-        raise MVCError(name + '() can only be called from updateAll(app)')
+        raise MVCError(name + ': use in updateAll only')
 
 
 def _checkTouch(name, changing=False):
     if _runtime is None:
-        raise MVCError(name + '() requires a running app')
+        raise MVCError(name + ': app not running')
     if changing and _runtime.phase != CONTROLLER:
-        raise MVCError(name + '() can only be called from an event function')
+        raise MVCError(name + ': use in events only')
 
 
 def _touchPad(pad):
     names = _runtime.hw.padNames
     if not isinstance(pad, str) or pad not in names:
-        raise ValueError("touch pad must be 'A1' through 'A7', got " + repr(pad))
+        raise ValueError('pad must be A1-A7: ' + repr(pad))
     return _runtime.hw.pads[names.index(pad)]
 
 
 def _touchNumber(value, name):
     if not isinstance(value, int) or isinstance(value, bool):
-        raise TypeError(name + ' must be an integer')
+        raise TypeError(name + ' must be an int')
     if not 0 <= value <= 65535:
         raise ValueError(name + ' must be 0 to 65535')
 
@@ -450,18 +434,16 @@ def _toRGB(color):
         for c in color:
             if (not isinstance(c, int) or isinstance(c, bool)
                     or not 0 <= c <= 255):
-                raise ValueError('RGB values must be integers from 0 to '
-                                 '255, got ' + repr(color))
+                raise ValueError('RGB needs ints 0-255: ' + repr(color))
         return color
-    raise ValueError("color must be a name like 'red' or an (r, g, b) "
-                     'tuple, got ' + repr(color))
+    raise ValueError('use color name or RGB tuple: ' + repr(color))
 
 
 def setLed(index, color):
     _checkView('setLed')
     if (not isinstance(index, int) or isinstance(index, bool)
             or not 0 <= index < NUM_LEDS):
-        raise IndexError('LED index must be 0 to 9, got ' + repr(index))
+        raise IndexError('LED index must be 0-9: ' + repr(index))
     _runtime.frame[index] = _toRGB(color)
 
 
@@ -484,8 +466,7 @@ def playTone(frequency):
     _checkView('playTone')
     if (not isinstance(frequency, (int, float)) or isinstance(frequency, bool)
             or not 20 <= frequency <= 4000):
-        raise ValueError('tone frequency must be 20 to 4000 Hz, got ' +
-                         repr(frequency))
+        raise ValueError('tone must be 20-4000 Hz: ' + repr(frequency))
     _runtime.toneRequest = int(frequency)
 
 
@@ -497,5 +478,5 @@ def stopTone():
 def playSound(filename):
     _checkView('playSound')
     if not isinstance(filename, str):
-        raise TypeError("playSound() needs a file name like 'beep.wav'")
+        raise TypeError('playSound needs a filename string')
     _runtime.soundRequest = filename
