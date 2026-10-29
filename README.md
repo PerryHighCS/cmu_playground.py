@@ -402,6 +402,11 @@ On frozen firmware, copy just your app to `code.py`; `deploy.cmd` installs
 the standalone `.mpy` again, so use it only with stock firmware.
 Changes to the frozen framework require rebuilding and flashing the UF2.
 
+This custom firmware disables `countio` (hardware pulse counting) to make
+room in internal flash for the framework. The framework does not use it;
+touch, buttons, LEDs, tones, and WAV playback keep their required modules.
+Programs that import `countio` will need a different firmware configuration.
+
 To confirm freezing at the serial REPL, run `help('modules')` and look
 for `cmu_playground` after removing the filesystem copies. To compare RAM,
 run this after a fresh restart with each firmware:

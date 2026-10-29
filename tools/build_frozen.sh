@@ -49,8 +49,11 @@ mkdir -p "$cp_dir/cmu_frozen"
 # Freeze the source using the firmware's own mpy-cross, not the standalone .mpy.
 cp "$project_dir/cmu_playground.py" "$cp_dir/cmu_frozen/cmu_playground.py"
 mkdir -p "$cp_dir/cmu_build_config"
-printf '%s\n' 'FROZEN_MPY_DIRS += $(TOP)/cmu_frozen' \
-    > "$cp_dir/cmu_build_config/user_post_mpconfigport.mk"
+cat > "$cp_dir/cmu_build_config/user_post_mpconfigport.mk" <<'MAKE'
+FROZEN_MPY_DIRS += $(TOP)/cmu_frozen
+# Leave flash space for the framework. Hardware pulse counting is unused.
+CIRCUITPY_COUNTIO = 0
+MAKE
 
 make -C "$cp_dir/mpy-cross" -j2
 make -C "$cp_dir/ports/atmel-samd" -I "$cp_dir/cmu_build_config" \
