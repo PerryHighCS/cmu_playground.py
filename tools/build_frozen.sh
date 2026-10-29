@@ -40,6 +40,10 @@ PY
 # Select dependencies by board, before adding our non-submodule source directory.
 # The port-wide target clones every frozen library and unrelated port libraries.
 make -C "$cp_dir/ports/atmel-samd" BOARD=circuitplayground_express fetch-board-submodules
+# CircuitPython 10.3.1's board fetch omits this frozen-manifest dependency.
+# Fetch only the pinned submodule; do not initialize its nested libraries.
+git -C "$cp_dir" submodule update --init --depth 1 -- lib/micropython-lib
+test -f "$cp_dir/lib/micropython-lib/README.md"
 
 mkdir -p "$cp_dir/cmu_frozen"
 # Freeze the source using the firmware's own mpy-cross, not the standalone .mpy.
