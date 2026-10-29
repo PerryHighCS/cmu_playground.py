@@ -51,8 +51,7 @@ cp "$project_dir/cmu_playground.py" "$cp_dir/cmu_frozen/cmu_playground.py"
 mkdir -p "$cp_dir/cmu_build_config"
 cat > "$cp_dir/cmu_build_config/user_post_mpconfigport.mk" <<'MAKE'
 FROZEN_MPY_DIRS += $(TOP)/cmu_frozen
-# Leave flash space for the framework. Hardware pulse counting is unused.
-CIRCUITPY_COUNTIO = 0
+CIRCUITPY_COUNTIO = 1
 MAKE
 
 make -C "$cp_dir/mpy-cross" -j2
