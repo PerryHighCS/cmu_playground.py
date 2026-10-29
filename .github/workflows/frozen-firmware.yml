@@ -1,0 +1,37 @@
+name: Build frozen Circuit Playground firmware
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out CircuitPython 10.3.1
+        uses: actions/checkout@v4
+        with:
+          repository: adafruit/circuitpython
+          ref: '10.3.1'
+          path: circuitpython
+          fetch-depth: 0
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-arm-none-eabi libnewlib-arm-none-eabi gettext
+          python3 -m venv .venv
+          .venv/bin/pip install -r circuitpython/requirements-dev.txt
+      - name: Build firmware with cmu_playground frozen
+        run: |
+          source .venv/bin/activate
+          bash tools/build_frozen.sh circuitpython
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmu-playground-cpx-10.3.1
+          path: firmware/cmu-playground-cpx-10.3.1.uf2
+          if-no-files-found: error

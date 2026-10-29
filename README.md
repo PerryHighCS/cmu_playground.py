@@ -376,3 +376,60 @@ would try to load it instead of the `.mpy`, and run out of memory.
 
 The board has very little memory. Long programs can stop with a
 `MemoryError`. If that happens, make your program shorter or simpler.
+
+### Freeze the framework into firmware
+
+An `.mpy` on `CIRCUITPY` still loads its bytecode into RAM. Freezing
+`cmu_playground` into a custom CircuitPython firmware keeps that bytecode
+in flash. Runtime objects, dictionaries, the app model, and audio buffers
+still need RAM. The exact savings need to be measured on the board.
+
+The repository includes a manual GitHub Actions build for Circuit Playground
+Express and CircuitPython **10.3.1**, matching `build.cmd`:
+
+1. Push these build files and the current `cmu_playground.py` to GitHub.
+2. Open **Actions → Build frozen Circuit Playground firmware → Run workflow**.
+3. After a successful build, download and unzip the
+   **cmu-playground-cpx-10.3.1** artifact.
+4. Back up the files on `CIRCUITPY`. Double-press the board's reset button
+   to open `CPLAYBOOT`, then copy `cmu-playground-cpx-10.3.1.uf2` onto it.
+5. Once `CIRCUITPY` returns, remove any `cmu_playground.py` and
+   `cmu_playground.mpy` from its root and `lib` directory. Files on the
+   filesystem can shadow the frozen module. Keep your student `code.py`.
+
+Use the same import in `code.py`: `from cmu_playground import *`.
+On frozen firmware, copy just your app to `code.py`; `deploy.cmd` installs
+the standalone `.mpy` again, so use it only with stock firmware.
+Changes to the frozen framework require rebuilding and flashing the UF2.
+
+To confirm freezing at the serial REPL, run `help('modules')` and look
+for `cmu_playground` after removing the filesystem copies. To compare RAM,
+run this after a fresh restart with each firmware:
+
+```python
+import gc
+gc.collect()
+before = gc.mem_free()
+import cmu_playground
+gc.collect()
+print('free:', gc.mem_free(), 'import used:', before - gc.mem_free())
+```
+
+For a local Linux/WSL build, follow
+[CircuitPython's build setup](https://docs.circuitpython.org/en/latest/BUILDING.html),
+activate the environment with its `requirements-dev.txt` installed, and run:
+
+```bash
+git clone --branch 10.3.1 https://github.com/adafruit/circuitpython.git
+bash tools/build_frozen.sh circuitpython
+```
+
+Use a dedicated CircuitPython checkout: the script adds a frozen-module
+directory and updates the Express board configuration, preserving its
+existing frozen libraries. The output goes in `firmware/`. The compiler
+must successfully link the firmware to confirm that it fits the board's
+internal flash. This build setup has not yet been compiled or tested on
+hardware.
+
+See [Adafruit's frozen-module guide](https://learn.adafruit.com/building-circuitpython/adding-frozen-modules)
+for how this saves RAM.
