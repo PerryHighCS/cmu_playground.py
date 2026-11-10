@@ -27,7 +27,8 @@ __all__ = ('runApp', 'setLed', 'setAllLeds', 'clearLeds',
            'MVCError')
 
 CALLBACK_NAMES = ('onAppStart', 'onTouch', 'onTouchRelease',
-                  'onButtonPress', 'onButtonRelease', 'onStep', 'updateAll')
+                  'onButtonPress', 'onButtonRelease', 'onSwitch', 'onStep',
+                  'updateAll')
 
 COLORS = {
     'red': (255, 0, 0), 'green': (0, 255, 0), 'blue': (0, 0, 255),
@@ -108,6 +109,10 @@ class Hardware:
             button.switch_to_input(pull=digitalio.Pull.DOWN)
             self.buttons.append(button)
 
+        # The slide switch reads True when slid left, toward the A button.
+        self.switch = digitalio.DigitalInOut(board.SLIDE_SWITCH)
+        self.switch.switch_to_input(pull=digitalio.Pull.UP)
+
         self.speakerEnable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
         self.speakerEnable.switch_to_output(value=False)
         self.audio = audioio.AudioOut(board.SPEAKER)
@@ -180,7 +185,7 @@ class Hardware:
             self.pixels.fill(BLACK)
             self.pixels.show()
             for device in self.pads + self.buttons + [
-                    self.audio, self.speakerEnable, self.pixels]:
+                    self.switch, self.audio, self.speakerEnable, self.pixels]:
                 device.deinit()
 
 
@@ -218,6 +223,7 @@ class Runtime:
         self.padNow = [False] * len(self.hw.pads)
         self.buttonState = [False] * len(self.hw.buttons)
         self.buttonNow = [False] * len(self.hw.buttons)
+        self.switchState = False
 
     # -- timing
 
@@ -307,6 +313,13 @@ class Runtime:
                     changed = True
                     if not app.running:
                         return changed
+
+        now = self.hw.switch.value
+        if now != self.switchState:
+            self.switchState = now
+            if self.onSwitch is not None:
+                self.callController(self.onSwitch, now)
+                changed = True
         return changed
 
     # -- main loop
@@ -320,6 +333,12 @@ class Runtime:
             # Whatever is held at startup is the baseline, not an event.
             self.hw.readPads(self.padState)
             self.hw.readButtons(self.buttonState)
+
+            # A switch is a position, not a press, so report where it
+            # starts. Then onSwitch only runs when it moves.
+            self.switchState = self.hw.switch.value
+            if self.onSwitch is not None and app.running:
+                self.callController(self.onSwitch, self.switchState)
 
             self.view()
 
