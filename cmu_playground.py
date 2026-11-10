@@ -116,6 +116,11 @@ class Hardware:
         self.speakerEnable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
         self.speakerEnable.switch_to_output(value=False)
         self.audio = audioio.AudioOut(board.SPEAKER)
+        # One sine cycle at 32, 16 and 8 samples, built once so a tone
+        # starts right away instead of spending ~10 ms computing a wave.
+        sine = [int((1 + math.sin(math.pi * i / 16)) * TONE_VOLUME)
+                for i in range(32)]
+        self.waves = [array.array('H', sine[::step]) for step in (1, 2, 4)]
         self.toneFrequency = None   # tone currently sounding
         self.wave = None            # WaveFile currently playing
         self.waveFile = None
@@ -141,14 +146,16 @@ class Hardware:
 
     def startTone(self, frequency):
         self.stopAudio()
-        # One sine cycle, played at length * frequency samples per second,
-        # gives an exact pitch with a small buffer.
-        length = max(8, min(32, 64000 // frequency))
-        wave = array.array('H', [0] * length)
-        for i in range(length):
-            wave[i] = int((1 + math.sin(math.pi * 2 * i / length)) *
-                          TONE_VOLUME)
-        sample = audiocore.RawSample(wave, sample_rate=length * frequency)
+        # One sine cycle, played at len(wave) * frequency samples per
+        # second, gives an exact pitch. Fewer samples per cycle for high
+        # tones keeps the sample rate at 64 kHz or less.
+        if frequency <= 2000:
+            wave = self.waves[0]
+        elif frequency <= 4000:
+            wave = self.waves[1]
+        else:
+            wave = self.waves[2]
+        sample = audiocore.RawSample(wave, sample_rate=len(wave) * frequency)
         self.speakerEnable.value = True
         self.audio.play(sample, loop=True)
         self.toneFrequency = frequency
@@ -175,12 +182,14 @@ class Hardware:
             self.waveFile.close()
             self.waveFile = None
             self.wave = None
-        self.speakerEnable.value = False
+        # Leave the amplifier on: it takes tens of milliseconds to wake,
+        # which would cut off the start of short beeps.
 
     def shutdown(self):
         # Leave the speaker silent and the LEDs dark, then release the pins.
         try:
             self.stopAudio()
+            self.speakerEnable.value = False
         finally:
             self.pixels.fill(BLACK)
             self.pixels.show()
