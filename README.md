@@ -282,7 +282,7 @@ The board plays one sound at a time. You can only use these functions inside
 
 ### `playTone(frequency)`
 
-Plays a steady tone. `frequency` is in hertz, from `20` to `4000`. For
+Plays a steady tone. `frequency` is in hertz, from `20` to `6000`. For
 example, `440` is the note A.
 
 The tone keeps playing until a later `updateAll` asks for something else. If
@@ -363,7 +363,7 @@ broken. The message appears in the serial console.
 | Set `app.stepsPerSecond` below zero | `ValueError` |
 | Used an LED index outside 0 to 9 | `IndexError` |
 | Used an unknown color name or a bad RGB value | `ValueError` |
-| Used a tone frequency outside 20 to 4000 | `ValueError` |
+| Used a tone frequency outside 20 to 6000 | `ValueError` |
 | Passed `playSound` something that isn't a string | `TypeError` |
 | Asked `playSound` for a file that doesn't exist | `ValueError` |
 | Named a variable `onTouch` (or another event name) that isn't a function | `TypeError` |

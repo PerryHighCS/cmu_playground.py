@@ -484,8 +484,8 @@ def clearLeds():
 def playTone(frequency):
     _checkView('playTone')
     if (not isinstance(frequency, (int, float)) or isinstance(frequency, bool)
-            or not 20 <= frequency <= 4000):
-        raise ValueError('tone must be 20-4000 Hz: ' + repr(frequency))
+            or not 20 <= frequency <= 6000):
+        raise ValueError('tone must be 20-6000 Hz: ' + repr(frequency))
     _runtime.toneRequest = int(frequency)
 
 
