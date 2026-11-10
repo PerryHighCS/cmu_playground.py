@@ -23,7 +23,7 @@ def colorWheel(position):
 
 
 def onAppStart(app):
-    app.stepsPerSecond = 20
+    app.stepsPerSecond = 30
     app.soundOn = False
     app.lit = 0          # how many LEDs are lit, 0 to 10
     app.counter = 0      # steps since the last LED lit
