@@ -60,6 +60,7 @@ Define only the ones you need. Every one receives `app` first.
 | `onTouchRelease(app, pad)` | A touch pad is let go |
 | `onButtonPress(app, button)` | Button A or B is pressed |
 | `onButtonRelease(app, button)` | Button A or B is released |
+| `onSwitch(app, isOn)` | At startup, then whenever the slide switch moves |
 | `onStep(app)` | `app.stepsPerSecond` times per second |
 | `updateAll(app)` | After the events above, to update the LEDs and sound |
 
@@ -149,6 +150,24 @@ def onButtonPress(app, button):
 
 A pad or button that is already held when the program starts does not cause
 an event.
+
+### `onSwitch(app, isOn)`
+
+`isOn` is `True` when the slide switch is slid left, toward button A, and
+`False` when it is slid right.
+
+The switch stays where you put it, so `onSwitch` also runs once when the
+program starts, right after `onAppStart`, to tell you where it begins. After
+that it runs each time the switch moves. If you need the position later,
+save it in the model:
+
+```python
+def onAppStart(app):
+    app.switchOn = False
+
+def onSwitch(app, isOn):
+    app.switchOn = isOn
+```
 
 ### `onStep(app)`
 

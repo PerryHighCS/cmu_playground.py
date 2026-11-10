@@ -41,6 +41,7 @@ class TouchCalibrationTests(unittest.TestCase):
         self.hw.padNames = tuple('A' + str(i) for i in range(1, 8))
         self.hw.pads = self.pads
         self.hw.buttons = []
+        self.hw.switch = SimpleNamespace(value=False)
         self.runtime = framework.Runtime.__new__(framework.Runtime)
         self.runtime.hw = self.hw
         self.runtime.phase = framework.CONTROLLER
@@ -49,6 +50,8 @@ class TouchCalibrationTests(unittest.TestCase):
         self.runtime.padState = [False] * 7
         self.runtime.buttonNow = []
         self.runtime.buttonState = []
+        self.runtime.switchState = False
+        self.runtime.onSwitch = None
         self.events = []
         self.runtime.onTouch = lambda app, pad: self.events.append(('touch', pad))
         self.runtime.onTouchRelease = lambda app, pad: self.events.append(('release', pad))
